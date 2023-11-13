@@ -4,6 +4,14 @@
 
 The C++ Windows Serial Port Header-Only Library provides a convenient and encapsulated solution for working with serial ports in Windows environments. It abstracts the complexities of the WinApi, offering a clean interface for reading and writing operations. The library is designed to operate seamlessly with C++17 and has been tested on Windows 10.
 
+## Table of Contents
+
+ - [Features](#features)
+ - [Usage](#usage)
+ - [Examples](#examples)
+ - [Lisence](#license)
+ - [Contribution](#contribution)
+
 ## Features
 
 - **Simplified Interface**: The library wraps the WinApi in a C++-friendly manner, allowing users to work with serial ports more intuitively.
@@ -44,7 +52,7 @@ The C++ Windows Serial Port Header-Only Library provides a convenient and encaps
     std::string command = mySerialPort.readString(3);
     ```
 
-## Example
+## Examples
 
 ```cpp
 #include "serial.hpp"
@@ -69,7 +77,3 @@ This library is provided under the [MIT License](LICENSE), allowing for flexibil
 ## Contribution
 
 Contributions are welcome! If you encounter issues or have suggestions for improvements, please open an [issue](https://github.com/morrrrrrrr/serial.hpp/issues) or submit a [pull request](https://github.com/morrrrrrrr/serial.hpp/pulls).
-
----
-
-Feel free to customize this README to suit the specifics of your project and provide additional information as needed.
