@@ -3,13 +3,11 @@
 #define SERIAL_HPP
 
 #include <windows.h>
+#include <chrono>
 #include <thread>
 #include <string>
 #include <sstream>
 #include <stdexcept>
-#include <functional>
-#include <locale>
-#include <codecvt>
 
 #pragma region exceptions
 class SerialException : public std::exception {
@@ -27,18 +25,65 @@ public:
 #pragma endregion
 
 class SerialPort {
-    HANDLE hSerial;
-    std::stringstream read;
+    std::string _port;
+    int _bRate;
+    bool _isOpen, _pauseReadThread;
+
+    std::stringstream _readBuffer;
+    std::thread _readThread;
+
+    DCB _dcbSerialParams;
+    HANDLE _hSerial;
 public:
     #pragma region Constructors
-    SerialPort(const std::string& port, int bRate) {
+    SerialPort(const std::string& port, int bRate = 9600) : _port(port), _bRate(bRate) {
+        _dcbSerialParams = { 0 };
+        _dcbSerialParams.DCBlength = sizeof(_dcbSerialParams);
+        _dcbSerialParams.BaudRate = bRate;
+        _dcbSerialParams.ByteSize = 8;
+        _dcbSerialParams.StopBits = ONESTOPBIT;
+        _dcbSerialParams.Parity   = NOPARITY;
+        // Serial Parameters are set up
 
-        std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-        std::wstring wPort = converter.from_bytes(port);
+        _isOpen = false;
+        _readBuffer.clear();
+    }
 
-        const WCHAR* com = wPort.c_str();
-        HANDLE hSerial = CreateFile(
-            com,
+    // Deconstructor: cleanup
+    ~SerialPort() {
+        close();
+    }
+
+    SerialPort(const SerialPort&) = delete;  // Deleted copy constructor
+    SerialPort& operator=(const SerialPort&) = delete;  // Deleted copy assignment operator
+    #pragma endregion
+
+    void readFunctionThread(bool& open, bool& pause) {
+        while (open) {
+            while (pause) { } // pause the thread while bigger read operations are happening
+            DWORD pos;
+            char c;
+            
+            if (ReadFile(_hSerial, &c, 1, &pos, nullptr)) {
+                if (pos) { // read a byte
+                    _readBuffer.str(c + _readBuffer.str());
+                }
+                else { // read empty
+                    
+                }
+            }
+        }
+    }
+
+    #pragma region open / close
+    void open() {
+        if (_isOpen) {
+            close();
+            throw SerialException("Tried to open Port that was already open");
+        }
+
+        HANDLE hSerial = CreateFileA(
+            _port.c_str(),
             GENERIC_READ | GENERIC_WRITE,
             0,
             0,
@@ -50,38 +95,82 @@ public:
         if (hSerial == INVALID_HANDLE_VALUE) {
             throw SerialException("Error opening serial port.");
         }
-
-        DCB dcbSerialParams = { 0 };
-        dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
-
-        if (!GetCommState(hSerial, &dcbSerialParams)) {
+        if (!GetCommState(hSerial, &_dcbSerialParams)) {
             CloseHandle(hSerial);
             throw SerialException("Error getting serial port state.");
         }
-
-        dcbSerialParams.BaudRate = CBR_9600;  // Set to match Arduino baud rate
-        dcbSerialParams.ByteSize = 8;
-        dcbSerialParams.StopBits = ONESTOPBIT;
-        dcbSerialParams.Parity   = NOPARITY;
-
-        if (!SetCommState(hSerial, &dcbSerialParams)) {
+        if (!SetCommState(hSerial, &_dcbSerialParams)) {
             CloseHandle(hSerial);
             throw SerialException("Error setting serial port state.");
         }
 
-        //hSerial is now set up
-    }
-    #pragma endregion
+        _isOpen = true;
+        _pauseReadThread = false;
 
-    #pragma region open / close
-    void open() {
+        // initialize read thread
+        _readBuffer.clear();
 
+        _readThread = std::thread(readFunctionThread, std::ref(this->_isOpen), std::ref(this->_pauseReadThread));
     }
 
     void close() {
+        if (!_isOpen) {
+            throw SerialException("Tried to close Port that was already closed");
+        }
 
+        _isOpen = false;
+        
+        _readThread.join();
+
+        CloseHandle(_hSerial);
     }
     #pragma endregion
+    
+    int available() {
+        if (!_isOpen) {
+            close();
+            throw SerialException("Accessed SerialPort.available() while the port was closed");
+        } 
+
+        return _readBuffer.str().size();
+    }
+
+    char readChar() {
+        if (available()) {
+            char c;
+            _readBuffer >> c;
+            return c;
+        }
+        return '0';
+    }
+
+    std::string readString(int length) {
+        while (available() < length) {
+            // wait for the read buffer to fill up until it is at least `length` long
+        }
+        char c;
+        int len;
+        std::string output;
+        while (c = readChar() && len < length) {
+            len++;
+            output = output + c;
+        }
+    }
+
+    void sendString(const std::string& str) {
+        if (!_isOpen) {
+
+        } 
+        DWORD pos;
+        if (!WriteFile(_hSerial, str.c_str(), str.size(), &pos, nullptr)) {
+            close();
+            throw SerialException("Error writing to serial port.");
+        }
+    }
+
+    bool isOpen() {
+        return _isOpen;
+    }
 }; // class port
 
 #endif
