@@ -1,4 +1,6 @@
-# C++ Windows Serial Port Header-Only Library
+# serial.hpp - README
+
+C++ Windows Serial Port Header-Only Library
 
 ## Overview
 
