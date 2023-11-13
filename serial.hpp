@@ -7,6 +7,7 @@
 #include <thread>
 #include <string>
 #include <sstream>
+#include <iostream>
 #include <stdexcept>
 
 #pragma region exceptions
@@ -76,46 +77,53 @@ public:
     }
 
     #pragma region open / close
-    void open() {
-        if (_isOpen) {
-            close();
-            throw SerialException("Tried to open Port that was already open");
+    bool open() {
+        try {
+            if (_isOpen) {
+                throw SerialException("Tried to open Port that was already open");
+            }
+
+            HANDLE hSerial = CreateFileA(
+                _port.c_str(),
+                GENERIC_READ | GENERIC_WRITE,
+                0,
+                0,
+                OPEN_EXISTING,
+                FILE_ATTRIBUTE_NORMAL,
+                0
+            );
+
+            if (hSerial == INVALID_HANDLE_VALUE) {
+                throw SerialException("Error opening serial port.");
+            }
+            if (!GetCommState(hSerial, &_dcbSerialParams)) {
+                CloseHandle(hSerial);
+                throw SerialException("Error getting serial port state.");
+            }
+            if (!SetCommState(hSerial, &_dcbSerialParams)) {
+                CloseHandle(hSerial);
+                throw SerialException("Error setting serial port state.");
+            }
+
+            _isOpen = true;
+            _pauseReadThread = false;
+
+            // initialize read thread
+            _readBuffer.clear();
+
+            _readThread = std::thread(readFunctionThread, std::ref(this->_isOpen), std::ref(this->_pauseReadThread));
         }
-
-        HANDLE hSerial = CreateFileA(
-            _port.c_str(),
-            GENERIC_READ | GENERIC_WRITE,
-            0,
-            0,
-            OPEN_EXISTING,
-            FILE_ATTRIBUTE_NORMAL,
-            0
-        );
-
-        if (hSerial == INVALID_HANDLE_VALUE) {
-            throw SerialException("Error opening serial port.");
+        catch (const std::exception& exception) {
+            std::cerr << "Failed to open SerialPort: " << exception.what() << "\n";
+            return false;
         }
-        if (!GetCommState(hSerial, &_dcbSerialParams)) {
-            CloseHandle(hSerial);
-            throw SerialException("Error getting serial port state.");
-        }
-        if (!SetCommState(hSerial, &_dcbSerialParams)) {
-            CloseHandle(hSerial);
-            throw SerialException("Error setting serial port state.");
-        }
-
-        _isOpen = true;
-        _pauseReadThread = false;
-
-        // initialize read thread
-        _readBuffer.clear();
-
-        _readThread = std::thread(readFunctionThread, std::ref(this->_isOpen), std::ref(this->_pauseReadThread));
+        return true;
     }
 
     void close() {
         if (!_isOpen) {
-            throw SerialException("Tried to close Port that was already closed");
+            std::cerr << "Tried to close Port that was already closed\n";
+            return;
         }
 
         _isOpen = false;
@@ -157,7 +165,7 @@ public:
         }
     }
 
-    void sendString(const std::string& str) {
+    void writeString(const std::string& str) {
         if (!_isOpen) {
 
         } 
