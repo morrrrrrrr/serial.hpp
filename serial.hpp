@@ -67,7 +67,10 @@ public:
             
             if (ReadFile(_hSerial, &c, 1, &pos, nullptr)) {
                 if (pos) { // read a byte
-                    _readBuffer.str(c + _readBuffer.str());
+                    // this resets the stringstream, so that when the buffer was empty before, now you can read from it
+                    std::string str = _readBuffer.str();
+                    _readBuffer.clear();
+                    _readBuffer.str(c + str);
                 }
                 else { // read empty
                     
@@ -136,8 +139,8 @@ public:
     
     int available() {
         if (!_isOpen) {
-            close();
-            throw SerialException("Accessed SerialPort.available() while the port was closed");
+            std::cerr << "Accessed SerialPort.available() while the port was closed\n";
+            return 0;
         } 
 
         return _readBuffer.str().size();
@@ -163,6 +166,7 @@ public:
             len++;
             output = output + c;
         }
+        return output;
     }
 
     void writeString(const std::string& str) {
@@ -178,6 +182,11 @@ public:
 
     bool isOpen() {
         return _isOpen;
+    }
+
+    const SerialPort& operator<<(const std::string& str) {
+        writeString(str);
+        return *this;
     }
 }; // class port
 
