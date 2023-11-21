@@ -178,11 +178,26 @@ public:
     bool isOpen() {
         return _isOpen;
     }
-
-    const SerialPort& operator<<(const std::string& str) {
-        writeString(str);
-        return *this;
-    }
+    
+    friend SerialPort& operator<<(SerialPort& port, const std::string& str);
+    friend std::string& operator>>(SerialPort& port, std::string& str);
+    friend char& operator>>(SerialPort& port, char& c);
 }; // class port
+
+SerialPort& operator<<(SerialPort& port, const std::string& str) {
+    port.writeString(str);
+    return port;
+}
+
+std::string& operator>>(SerialPort& port, std::string& str) {
+    port._readBuffer >> str;
+    return str;
+}
+
+char& operator>>(SerialPort& port, char& c) {
+    c = port.available() ? port.readChar() : 0;
+    return c;
+}
+
 
 #endif

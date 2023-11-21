@@ -50,7 +50,7 @@ The C++ Windows Serial Port Header-Only Library provides a convenient and encaps
     std::string str = "Hello, Serial!";
     mySerialPort.writeString(str);
     
-    // all commands are 3 chars long
+    // all commands are for example 3 chars long
     std::string command = mySerialPort.readString(3);
     ```
 
@@ -60,7 +60,7 @@ The C++ Windows Serial Port Header-Only Library provides a convenient and encaps
 #include "serial.hpp"
 
 int main() {
-    SerialPort mySerialPort("COM1", 9600);
+    SerialPort mySerialPort("COM3", 9600);
 
     if (mySerialPort.open()) {
         // Perform operations...
