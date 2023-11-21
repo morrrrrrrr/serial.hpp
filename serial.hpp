@@ -35,14 +35,6 @@ class SerialPort {
     HANDLE _hSerial;
 public:
     SerialPort(const std::string& port, int bRate = 9600) : _port(port), _bRate(bRate) {
-        _dcbSerialParams = { 0 };
-        _dcbSerialParams.DCBlength = sizeof(_dcbSerialParams);
-        _dcbSerialParams.BaudRate = bRate;
-        _dcbSerialParams.ByteSize = 8;
-        _dcbSerialParams.StopBits = ONESTOPBIT;
-        _dcbSerialParams.Parity   = NOPARITY;
-        // Serial Parameters are set up
-
         _isOpen = false;
         _readBuffer.clear();
     }
@@ -58,16 +50,13 @@ public:
 
     void readFunctionThread(bool& open, bool& pause) {
         while (open) {
-            while (pause) { } // pause the thread while bigger read operations are happening
+            while (pause && open) { } // pause the thread while bigger read operations are happening
             DWORD pos;
             char c;
             
             if (ReadFile(_hSerial, &c, 1, &pos, nullptr)) {
                 if (pos) { // read a byte
-                    // this resets the stringstream, so that when the buffer was empty before, now you can read from it
-                    std::string str = _readBuffer.str();
-                    _readBuffer.clear();
-                    _readBuffer.str(c + str);
+                    _readBuffer << c;
                 }
                 else { // read empty
                     
@@ -82,7 +71,7 @@ public:
                 throw SerialException("Tried to open Port that was already open");
             }
 
-            HANDLE hSerial = CreateFileA(
+            _hSerial = CreateFileA(
                 _port.c_str(),
                 GENERIC_READ | GENERIC_WRITE,
                 0,
@@ -92,18 +81,34 @@ public:
                 0
             );
 
-            if (hSerial == INVALID_HANDLE_VALUE) {
+            if (_hSerial == INVALID_HANDLE_VALUE) {
                 throw SerialException("Error opening serial port.");
             }
-            if (!GetCommState(hSerial, &_dcbSerialParams)) {
-                CloseHandle(hSerial);
-                throw SerialException("Error getting serial port state.");
-            }
-            if (!SetCommState(hSerial, &_dcbSerialParams)) {
-                CloseHandle(hSerial);
+
+            _dcbSerialParams = { 0 };
+            _dcbSerialParams.DCBlength = sizeof(_dcbSerialParams);
+            _dcbSerialParams.BaudRate = (DWORD)_bRate;
+            _dcbSerialParams.ByteSize = 8;
+            _dcbSerialParams.StopBits = ONESTOPBIT;
+            _dcbSerialParams.Parity   = NOPARITY;
+
+            if (!SetCommState(_hSerial, &_dcbSerialParams)) {
+                CloseHandle(_hSerial);
                 throw SerialException("Error setting serial port state.");
             }
 
+            COMMTIMEOUTS timeouts = { 0 };
+            timeouts.ReadIntervalTimeout = 10000;
+            timeouts.ReadTotalTimeoutConstant = 1000;
+            timeouts.ReadTotalTimeoutMultiplier = 0;
+            timeouts.WriteTotalTimeoutConstant = 100;
+            timeouts.WriteTotalTimeoutMultiplier = 0;
+
+            if (!SetCommTimeouts(_hSerial, &timeouts)) {
+                CloseHandle(_hSerial);
+                throw SerialException("Error setting serial port timeouts.");
+            }
+            
             _isOpen = true;
             _pauseReadThread = false;
 
@@ -142,11 +147,9 @@ public:
     }
 
     char readChar() {
-        if (available()) {
-            char c;
-            _readBuffer >> c;
-            return c;
-        }
+        if (available())
+            return _readBuffer.get();
+        
         return 0;
     }
 
@@ -161,9 +164,9 @@ public:
             // wait for the read buffer to fill up until it is at least `length` long
         }
         char c;
-        int len;
+        int len = 0;
         std::string output;
-        while (c = readChar() && len < length) {
+        while ((c = readChar()) && len < length) {
             len++;
             output = output + c;
         }
@@ -173,11 +176,11 @@ public:
     void writeString(const std::string& str) {
         if (!_isOpen)
             return;
-        
+
         DWORD pos;
-        if (!WriteFile(_hSerial, str.c_str(), str.size(), &pos, nullptr)) {
-            close();
-            throw SerialException("Error writing to serial port.");
+        int isWritten = WriteFile(_hSerial, (LPCVOID)str.c_str(), str.size(), &pos, nullptr);
+        if (!isWritten) {
+            throw SerialException("Error writing to serial port: " + std::to_string(GetLastError()));
         }
     }
 

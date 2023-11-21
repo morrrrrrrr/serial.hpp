@@ -7,27 +7,23 @@ const std::string PORT = "COM3";
 const int BAUD_RATE = 9600;
 
 // standart use test
-int test1() {
-    SerialPort port(PORT, BAUD_RATE);
-
+int test1(SerialPort& port) {
     std::cout << "Opening port (" << PORT << ")...\n";
     if (!port.open()) {
         // print error message:
         std::cerr << "Couldn't connect to port " << PORT << "\n";
         return -1;
     }
-
-    std::cout << "Is port Open? " << port.isOpen() << "\n";
+    //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     std::cout << "Writing \"Hello\" to port\n";
-    port.writeString("Hello");
+    port.writeString("Hello World");
 
     std::cout << "Waiting for full answer to return...\n";
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    //std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
     std::cout << "Reading in Answer...\n";
-    std::string answer;
-    port >> answer;
+    std::string answer = port.readString(strlen("Hello World"));
 
     std::cout << "Printing Answer...\n";
     std::cout << answer << "\n";
@@ -61,8 +57,19 @@ int test2() {
     return 0;
 }
 
-int main(int argc, char** argv) {
-    test1();
+static SerialPort* pPort = nullptr;
 
-    test2();
+void closepPort() {
+    if (pPort != nullptr)
+        pPort->close();
+}
+
+int main(int argc, char** argv) {
+    SerialPort port(PORT, BAUD_RATE);
+    pPort = &port;
+    std::atexit(closepPort);
+
+    test1(port);
+
+    //test2();
 }
