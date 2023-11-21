@@ -149,10 +149,32 @@ port.close();
 std::cout << "Done with Test1.\n";
 return 0;
 ```
+---
+Testing Environment:
 
-## Building
+Program running on:
+- Windows 10
+- Compiled with Mingw64 g++ 
+    ```bash
+    g++ .\test.cpp -o test.exe -std=c++17 -l pthread
+    ```
 
+Connected with Arduino Uno on Port COM3
 
+Arduino program:
+```ino
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  if (Serial.available()) {
+    Serial.write(Serial.read());
+  }
+}
+```
 
 ## License
 
