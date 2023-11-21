@@ -10,6 +10,7 @@ const int BAUD_RATE = 9600;
 int test1() {
     SerialPort port(PORT, BAUD_RATE);
 
+    std::cout << "Opening port (" << PORT << ")...\n";
     if (!port.open()) {
         // print error message:
         std::cerr << "Couldn't connect to port " << PORT << "\n";

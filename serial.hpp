@@ -132,7 +132,7 @@ public:
         CloseHandle(_hSerial);
     }
     
-    int available() {
+    std::size_t available() {
         if (!_isOpen) {
             std::cerr << "Accessed SerialPort.available() while the port was closed\n";
             return 0;
@@ -147,7 +147,13 @@ public:
             _readBuffer >> c;
             return c;
         }
-        return '0';
+        return 0;
+    }
+
+    std::string readString() {
+        std::string str;
+        _readBuffer >> str;
+        return str;
     }
 
     std::string readString(int length) {
@@ -195,7 +201,7 @@ std::string& operator>>(SerialPort& port, std::string& str) {
 }
 
 char& operator>>(SerialPort& port, char& c) {
-    c = port.available() ? port.readChar() : 0;
+    c = port.readChar();
     return c;
 }
 
