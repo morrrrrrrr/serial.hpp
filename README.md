@@ -11,7 +11,6 @@ The C++ Windows Serial Port Header-Only Library provides a convenient and encaps
  - [Features](#features)
  - [Usage](#usage)
  - [Examples](#examples)
- - [Building](#building)
  - [Lisence](#license)
  - [Contribution](#contribution)
 
