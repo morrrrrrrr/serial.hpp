@@ -3,14 +3,13 @@
 #define SERIAL_HPP
 
 #include <windows.h>
-#include <chrono>
 #include <thread>
+#include <chrono>
 #include <string>
 #include <sstream>
 #include <iostream>
 #include <stdexcept>
 
-#pragma region exceptions
 class SerialException : public std::exception {
 private:
     std::string errorMessage;
@@ -23,7 +22,6 @@ public:
         return errorMessage.c_str();
     }
 };
-#pragma endregion
 
 class SerialPort {
     std::string _port;
@@ -36,7 +34,6 @@ class SerialPort {
     DCB _dcbSerialParams;
     HANDLE _hSerial;
 public:
-    #pragma region Constructors
     SerialPort(const std::string& port, int bRate = 9600) : _port(port), _bRate(bRate) {
         _dcbSerialParams = { 0 };
         _dcbSerialParams.DCBlength = sizeof(_dcbSerialParams);
@@ -52,12 +49,12 @@ public:
 
     // Deconstructor: cleanup
     ~SerialPort() {
-        close();
+        if (_isOpen)
+            close();
     }
 
     SerialPort(const SerialPort&) = delete;  // Deleted copy constructor
     SerialPort& operator=(const SerialPort&) = delete;  // Deleted copy assignment operator
-    #pragma endregion
 
     void readFunctionThread(bool& open, bool& pause) {
         while (open) {
@@ -79,7 +76,6 @@ public:
         }
     }
 
-    #pragma region open / close
     bool open() {
         try {
             if (_isOpen) {
@@ -114,7 +110,7 @@ public:
             // initialize read thread
             _readBuffer.clear();
 
-            _readThread = std::thread(readFunctionThread, std::ref(this->_isOpen), std::ref(this->_pauseReadThread));
+            _readThread = std::thread(readFunctionThread, this, std::ref(this->_isOpen), std::ref(this->_pauseReadThread));
         }
         catch (const std::exception& exception) {
             std::cerr << "Failed to open SerialPort: " << exception.what() << "\n";
@@ -135,7 +131,6 @@ public:
 
         CloseHandle(_hSerial);
     }
-    #pragma endregion
     
     int available() {
         if (!_isOpen) {
@@ -170,9 +165,9 @@ public:
     }
 
     void writeString(const std::string& str) {
-        if (!_isOpen) {
-
-        } 
+        if (!_isOpen)
+            return;
+        
         DWORD pos;
         if (!WriteFile(_hSerial, str.c_str(), str.size(), &pos, nullptr)) {
             close();
